@@ -17,12 +17,16 @@ I help organizations with large field networks replace fragmented, paper-based o
 
 ### What I Do
 
-I've spent **10+ years** building and leading digital transformation projects for cultural and educational institutions across Iran. My work sits at the intersection of **systems architecture**, **change management**, and **organizational strategy** — not just writing code, but making sure the people and processes around the technology actually work.
+With **25 years** in the digital space — from early web development and SEO to full-scale platform architecture and AI integration — I bring a rare combination of deep technical skills and strategic vision to every project.
+
+My focus is on **mission-driven organizations** operating large field networks. I don't just build software; I design ecosystems that connect people, data, and processes — and I make sure the humans in the loop are trained and empowered to use them.
 
 **Key numbers:**
 - 🏗️ Designed & deployed an integrated platform serving **50,000+ field workers** nationwide
 - 📊 Replaced paper-based workflows with digital reporting, performance tracking, financial calculations, and analytics
-- 🔗 Built 3 large-scale platforms across cultural, educational, and youth development sectors
+- 🔗 Built **3 large-scale platforms** across cultural, educational, and youth development sectors
+- 🤖 Delivered **AI training workshops** for organizations adopting intelligent tools
+- 🔍 Years of hands-on **SEO & content strategy** experience
 
 ---
 
@@ -34,10 +38,10 @@ Every digital transformation I lead follows this structure:
 ┌─────────────┐    ┌─────────────┐    ┌─────────────┐    ┌─────────────┐
 │  D iagnose  │───▶│ C onfigure  │───▶│  M obilize  │───▶│   A ssess   │
 │             │    │             │    │             │    │             │
-│  Evaluate   │    │  Design the │    │  Train      │    │  Measure    │
-│  current    │    │  platform   │    │  teams,     │    │  outcomes,  │
-│  state      │    │  around     │    │  manage     │    │  iterate    │
-│             │    │  culture    │    │  resistance │    │             │
+│  Evaluate   │    │  Design the │    │  Train &    │    │  Measure    │
+│  current    │    │  platform   │    │  empower    │    │  outcomes,  │
+│  state      │    │  around     │    │  teams      │    │  iterate    │
+│             │    │  culture    │    │             │    │             │
 └─────────────┘    └─────────────┘    └─────────────┘    └─────────────┘
 ```
 
@@ -56,6 +60,8 @@ Every digital transformation I lead follows this structure:
   <img src="https://img.shields.io/badge/Docker-2496ED?style=flat&logo=docker&logoColor=fff" />
   <img src="https://img.shields.io/badge/CI%2FCD-GitHub%20Actions-2088FF?style=flat&logo=githubactions&logoColor=fff" />
   <img src="https://img.shields.io/badge/TensorFlow-FF6F00?style=flat&logo=tensorflow&logoColor=fff" />
+  <img src="https://img.shields.io/badge/SEO-47A248?style=flat&logo=google&logoColor=fff" />
+  <img src="https://img.shields.io/badge/AI%20Training-412991?style=flat&logo=openai&logoColor=fff" />
 </p>
 
 ---
@@ -63,6 +69,7 @@ Every digital transformation I lead follows this structure:
 ### Currently
 
 - 🔧 Building open-source tools around the **DCMA framework**
+- 🤖 Running **AI workshops** for organizations adopting intelligent tools
 - 🤝 Open to **consulting engagements** with mission-driven organizations
 - 📝 Writing about digital transformation on [LinkedIn](https://www.linkedin.com/in/samtemehr/)
 
