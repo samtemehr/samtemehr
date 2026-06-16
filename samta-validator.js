@@ -291,18 +291,42 @@
         applyRowChange(id, status);
       } else {
         row?.querySelectorAll('button').forEach(b => { b.disabled = false; });
-        alert('❌ خطا در ثبت! لطفاً دوباره تلاش کنید.');
+        showToast('❌ خطا در ثبت! لطفاً دوباره تلاش کنید.');
       }
     }
   };
 
   /* ─── Batch actions ──────────────────────────────────────────── */
+  const _batchPending = { status: null, timer: null };
+
   async function batchSet(status) {
     if (S.busy) return;
     const lbl  = status === 'BASEREGIONACTIVE' ? 'فعال' : 'غیرفعال';
     const todo = S.records.filter(r => r.enumCStatusBaseRegion !== status);
-    if (!todo.length) { alert('همه نقاط این صفحه قبلاً ' + lbl + ' هستند.'); return; }
-    if (!confirm(todo.length + ' نقطه "' + lbl + '" می‌شوند. ادامه می‌دهید؟')) return;
+    if (!todo.length) { showToast('همه نقاط این صفحه قبلاً ' + lbl + ' هستند.'); return; }
+
+    const btnId = status === 'BASEREGIONACTIVE' ? '__sv_bok' : '__sv_bno';
+    const btn   = document.getElementById(btnId);
+
+    // Two-click confirmation (avoids browser dialog suppression)
+    if (_batchPending.status !== status) {
+      _batchPending.status = status;
+      if (_batchPending.timer) clearTimeout(_batchPending.timer);
+      const origText = btn.textContent;
+      btn.textContent = '⚠️ کلیک مجدد برای تأیید (' + todo.length + ' نقطه)';
+      btn.style.background = '#f59e0b';
+      _batchPending.timer = setTimeout(() => {
+        _batchPending.status = null;
+        if (btn) { btn.textContent = origText; btn.style.background = ''; }
+      }, 4000);
+      return;
+    }
+
+    // Confirmed — reset pending state
+    _batchPending.status = null;
+    if (_batchPending.timer) { clearTimeout(_batchPending.timer); _batchPending.timer = null; }
+    btn.textContent = (status === 'BASEREGIONACTIVE' ? '✅ فعال کردن همه این صفحه' : '❌ غیرفعال کردن همه این صفحه');
+    btn.style.background = '';
 
     S.busy = true;
     document.getElementById('__sv_bok').disabled = true;
@@ -322,6 +346,19 @@
     document.getElementById('__sv_bno').disabled = false;
   }
 
+  function showToast(msg) {
+    rmEl('__sv_toast');
+    const d = document.createElement('div');
+    d.id = '__sv_toast';
+    d.style.cssText =
+      'position:fixed;bottom:80px;left:50%;transform:translateX(-50%);z-index:99999999;' +
+      'background:#1e293b;color:#fff;padding:10px 20px;border-radius:8px;font-family:Tahoma;' +
+      'font-size:13px;direction:rtl;box-shadow:0 4px 16px rgba(0,0,0,.4);';
+    d.textContent = msg;
+    document.body.appendChild(d);
+    setTimeout(() => rmEl('__sv_toast'), 3000);
+  }
+
   async function navigate(dir) {
     if (S.busy) return;
     await loadAndRender(S.page + dir);
@@ -339,14 +376,14 @@
     try {
       const data = await fetchPage(page);
       rmEl('__sv_spin');
-      if (!data) { alert('❌ خطا در دریافت داده از سرور.'); return; }
+      if (!data) { showToast('❌ خطا در دریافت داده از سرور.'); return; }
       S.total   = data.count;
       S.page    = data.pageIndex;
       S.records = data.data || [];
       renderPanel();
     } catch (e) {
       rmEl('__sv_spin');
-      alert('❌ خطا: ' + e.message);
+      showToast('❌ خطا: ' + e.message);
     }
   }
 
@@ -377,7 +414,7 @@
           S.started = true;
           loadAndRender(1);
         } else {
-          alert('❌ بدون توکن امکان ادامه وجود ندارد.');
+          showToast('❌ بدون توکن امکان ادامه وجود ندارد.');
         }
       }
     }, 4000);
