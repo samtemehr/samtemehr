@@ -1,30 +1,11 @@
-/**
- * Samta Preaching Points Bulk Validator
- *
- * HOW TO USE:
- *  1. Go to https://ezam.balagh.ir/base-forms/base-region  (log in first)
- *  2. Open DevTools → Console  (F12)
- *  3. Paste this entire script and press Enter
- *  4. A panel will appear within a few seconds
- *
- * FEATURES:
- *  - Shows 50 records per page with name, address, region, type
- *  - Per-record: ✅ فعال  /  ❌ غیرفعال  buttons
- *  - Batch buttons: activate or deactivate the whole current page
- *  - Pagination: browse all ~39 000 records
- *  - Progress bar showing how many records processed
- */
-
 (function () {
   'use strict';
 
-  /* ─── Endpoints ────────────────────────────────────────────── */
   const EP = {
     list:   'https://ezam.balagh.ir/_api/V02/SamtaEzam/graphql',
     update: 'https://ezam.balagh.ir/_api/V02/Samta/graphql'
   };
 
-  /* ─── GraphQL bodies ───────────────────────────────────────── */
   const LIST_QUERY = `query($pageIndex: Int, $pageSize: Int) {
   baseRegion(pageIndex: $pageIndex, pageSize: $pageSize) {
     data {
@@ -44,39 +25,99 @@
   }
 }`;
 
-  /* ─── State ────────────────────────────────────────────────── */
+  /* ─── State ─────────────────────────────────────────────────── */
   const S = {
-    token:   (document.cookie.match(/SmtSbrEzam=([^;]*)/) || [])[1] || null,
-    page:    1,
-    pgSize:  50,
-    total:   0,
-    records: [],
-    stats:   { active: 0, inactive: 0 },
-    busy:    false,
-    capturedListBody: null   // filled by interceptor for extra reliability
+    token:            null,
+    page:             1,
+    pgSize:           50,
+    total:            0,
+    records:          [],
+    stats:            { active: 0, inactive: 0 },
+    busy:             false,
+    capturedListBody: null,
+    started:          false
   };
 
-  if (!S.token) {
-    alert('❌ توکن احراز هویت پیدا نشد.\nلطفاً دوباره وارد سامانه شوید.');
-    return;
+  /* ─── Helpers ────────────────────────────────────────────────── */
+  function rmEl(id) { document.getElementById(id)?.remove(); }
+
+  function showSpinner(msg) {
+    rmEl('__sv_spin');
+    const d = document.createElement('div');
+    d.id = '__sv_spin';
+    d.style.cssText =
+      'position:fixed;top:18px;right:18px;z-index:9999999;background:#4f46e5;color:#fff;' +
+      'padding:11px 18px;border-radius:10px;font-family:Tahoma;font-size:14px;direction:rtl;' +
+      'box-shadow:0 4px 20px rgba(0,0,0,.4);max-width:320px;line-height:1.5;';
+    d.textContent = msg;
+    document.body.appendChild(d);
   }
 
-  /* ─── Intercept fetch (captures real list query if available) ─ */
+  function esc(s) {
+    return String(s ?? '').replace(/[&<>"]/g,
+      c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;' }[c]));
+  }
+
+  function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+  function getOstan(divs) {
+    return divs?.find(d => d.mLevel === 'OSTAN')?.name || '';
+  }
+
+  /* ─── Token discovery ────────────────────────────────────────── */
+  function findTokenInStorage() {
+    function isJWT(v) {
+      return typeof v === 'string' && v.startsWith('eyJ') && v.split('.').length === 3;
+    }
+    function searchObj(obj) {
+      if (!obj || typeof obj !== 'object') return null;
+      for (const v of Object.values(obj)) {
+        if (isJWT(v)) return v;
+        const found = searchObj(v);
+        if (found) return found;
+      }
+      return null;
+    }
+    // Cookie
+    const c = (document.cookie.match(/SmtSbrEzam=([^;]*)/) || [])[1];
+    if (c) return c;
+    // localStorage / sessionStorage
+    for (const store of [localStorage, sessionStorage]) {
+      for (let i = 0; i < store.length; i++) {
+        const raw = store.getItem(store.key(i));
+        if (isJWT(raw)) return raw;
+        try { const j = searchObj(JSON.parse(raw)); if (j) return j; } catch(_) {}
+      }
+    }
+    return null;
+  }
+
+  /* ─── Intercept fetch ────────────────────────────────────────── */
   const _fetch = window.fetch.bind(window);
   window.fetch = async function (url, opts) {
+    // Grab token from outgoing Authorization header
+    if (!S.token && opts?.headers) {
+      const h = opts.headers;
+      const auth = typeof h.get === 'function'
+        ? h.get('Authorization')
+        : (h['Authorization'] || h['authorization'] || '');
+      if (auth && auth.startsWith('Bearer ')) {
+        S.token = auth.slice(7);
+        if (!S.started) { S.started = true; rmEl('__sv_spin'); loadAndRender(1); }
+      }
+    }
     const res = await _fetch(url, opts);
+    // Capture list query body
     if (typeof url === 'string' && url.includes('SamtaEzam/graphql') && opts?.body && !S.capturedListBody) {
       try {
         const json = await res.clone().json();
-        if (json?.data?.baseRegion) {
-          S.capturedListBody = JSON.parse(opts.body);
-        }
-      } catch (_) {}
+        if (json?.data?.baseRegion) S.capturedListBody = JSON.parse(opts.body);
+      } catch(_) {}
     }
     return res;
   };
 
-  /* ─── API helpers ──────────────────────────────────────────── */
+  /* ─── API ────────────────────────────────────────────────────── */
   async function gql(url, body) {
     const res = await _fetch(url, {
       method: 'POST',
@@ -112,42 +153,7 @@
     return ok;
   }
 
-  /* ─── Helpers ──────────────────────────────────────────────── */
-  const STAT = {
-    BASEREGIONACTIVE:    { lbl: '✅ فعال',          cls: 'sv-a', badge: 'sv-ba' },
-    BASEREGIONNONACTIVE: { lbl: '❌ غیرفعال',       cls: 'sv-n', badge: 'sv-bn' },
-    BASEREGIONCHEKING:   { lbl: '⏳ در حال بررسی',  cls: '',     badge: 'sv-bc' }
-  };
-
-  function getOstan(divs) {
-    return divs?.find(d => d.mLevel === 'OSTAN')?.name || '';
-  }
-
-  function esc(s) {
-    return String(s ?? '').replace(/[&<>"]/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;' }[c]));
-  }
-
-  function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
-
-  /* ─── Loading indicator ────────────────────────────────────── */
-  function showSpinner(msg) {
-    rmEl('__sv_spin');
-    const d = mk('div', '__sv_spin',
-      'position:fixed;top:18px;right:18px;z-index:9999999;background:#4f46e5;color:#fff;' +
-      'padding:11px 18px;border-radius:10px;font-family:Tahoma;font-size:14px;direction:rtl;' +
-      'box-shadow:0 4px 20px rgba(0,0,0,.4);');
-    d.textContent = msg;
-    document.body.appendChild(d);
-  }
-
-  function rmEl(id) { document.getElementById(id)?.remove(); }
-  function mk(tag, id, css) {
-    const el = document.createElement(tag);
-    el.id = id; el.style.cssText = css || '';
-    return el;
-  }
-
-  /* ─── CSS ──────────────────────────────────────────────────── */
+  /* ─── CSS ────────────────────────────────────────────────────── */
   const CSS = `
 #__sv_ov{position:fixed;inset:0;background:rgba(0,0,0,.82);z-index:9999998;display:flex;align-items:center;justify-content:center}
 #__sv_box{background:#fff;border-radius:14px;width:96%;max-width:980px;height:92vh;display:flex;flex-direction:column;overflow:hidden;direction:rtl;font-family:Tahoma,sans-serif}
@@ -182,7 +188,14 @@
 .sv-cls{background:#6b7280;color:#fff;border:none;padding:7px 16px;border-radius:6px;cursor:pointer;font-size:13px;font-family:Tahoma}
 `;
 
-  /* ─── Render panel ─────────────────────────────────────────── */
+  /* ─── Status map ─────────────────────────────────────────────── */
+  const STAT = {
+    BASEREGIONACTIVE:    { lbl: '✅ فعال',         cls: 'sv-a', badge: 'sv-ba' },
+    BASEREGIONNONACTIVE: { lbl: '❌ غیرفعال',      cls: 'sv-n', badge: 'sv-bn' },
+    BASEREGIONCHEKING:   { lbl: '⏳ در حال بررسی', cls: '',     badge: 'sv-bc' }
+  };
+
+  /* ─── Render ─────────────────────────────────────────────────── */
   function renderPanel() {
     rmEl('__sv_ov');
     const totalPages = Math.ceil(S.total / S.pgSize);
@@ -198,7 +211,7 @@
     <h2>🔍 بررسی نقاط تبلیغی</h2>
     <div class="sv-stat">
       صفحه ${S.page} از ${totalPages} &nbsp;|&nbsp; کل: ${S.total.toLocaleString('fa-IR')} نقطه<br>
-      ✅ ${S.stats.active} فعال &nbsp; ❌ ${S.stats.inactive} غیرفعال &nbsp; — ${pct}٪ بررسی‌شده
+      ✅ ${S.stats.active} فعال &nbsp; ❌ ${S.stats.inactive} غیرفعال &nbsp;— ${pct}٪ بررسی‌شده
     </div>
   </div>
   <div id="__sv_ctrl">
@@ -243,7 +256,7 @@
 </div>`;
   }
 
-  /* ─── Actions ──────────────────────────────────────────────── */
+  /* ─── Row update ─────────────────────────────────────────────── */
   function applyRowChange(id, status) {
     const info = STAT[status];
     const row  = document.getElementById('__svr_' + id);
@@ -259,8 +272,9 @@
     if (bar) bar.style.width = pct + '%';
   }
 
+  /* ─── Global onclick handler ─────────────────────────────────── */
   window.__sv = {
-    set: async function (id, status, btn) {
+    set: async function (id, status) {
       if (S.busy) return;
       const row = document.getElementById('__svr_' + id);
       row?.querySelectorAll('button').forEach(b => { b.disabled = true; });
@@ -274,12 +288,13 @@
     }
   };
 
+  /* ─── Batch actions ──────────────────────────────────────────── */
   async function batchSet(status) {
     if (S.busy) return;
-    const lbl = status === 'BASEREGIONACTIVE' ? 'فعال' : 'غیرفعال';
+    const lbl  = status === 'BASEREGIONACTIVE' ? 'فعال' : 'غیرفعال';
     const todo = S.records.filter(r => r.enumCStatusBaseRegion !== status);
     if (!todo.length) { alert('همه نقاط این صفحه قبلاً ' + lbl + ' هستند.'); return; }
-    if (!confirm(`${todo.length} نقطه "${lbl}" می‌شوند. ادامه می‌دهید؟`)) return;
+    if (!confirm(todo.length + ' نقطه "' + lbl + '" می‌شوند. ادامه می‌دهید؟')) return;
 
     S.busy = true;
     document.getElementById('__sv_bok').disabled = true;
@@ -289,12 +304,9 @@
       const row = document.getElementById('__svr_' + r.id);
       row?.querySelectorAll('button').forEach(b => { b.disabled = true; });
       const ok = await updateStatus(r.id, status);
-      if (ok) {
-        applyRowChange(r.id, status);
-      } else {
-        row?.querySelectorAll('button').forEach(b => { b.disabled = false; });
-      }
-      await sleep(500);   // avoid rate-limiting
+      if (ok) applyRowChange(r.id, status);
+      else row?.querySelectorAll('button').forEach(b => { b.disabled = false; });
+      await sleep(500);
     }
 
     S.busy = false;
@@ -309,11 +321,11 @@
 
   function closePanel() {
     rmEl('__sv_ov');
-    window.fetch = _fetch;   // restore original fetch
+    window.fetch = _fetch;
     delete window.__sv;
   }
 
-  /* ─── Load data and show panel ─────────────────────────────── */
+  /* ─── Load + render ──────────────────────────────────────────── */
   async function loadAndRender(page) {
     showSpinner('⏳ در حال بارگذاری صفحه ' + page + '...');
     try {
@@ -330,8 +342,37 @@
     }
   }
 
-  /* ─── Boot ─────────────────────────────────────────────────── */
-  showSpinner('⏳ در حال اتصال به سرور...');
-  loadAndRender(1);
+  /* ─── Boot ───────────────────────────────────────────────────── */
+  S.token = findTokenInStorage();
+
+  if (S.token) {
+    S.started = true;
+    showSpinner('⏳ در حال اتصال به سرور...');
+    loadAndRender(1);
+  } else {
+    // Token not in storage — wait for the page to make its next API call
+    showSpinner('⏳ در حال یافتن توکن...\nلطفاً چند ثانیه صبر کنید یا صفحه‌بندی را تغییر دهید');
+    setTimeout(function () {
+      if (!S.token) {
+        rmEl('__sv_spin');
+        const t = prompt(
+          'توکن به‌طور خودکار پیدا نشد.\n\n' +
+          'لطفاً:\n' +
+          '1. DevTools → Network را باز کنید\n' +
+          '2. روی هر درخواست graphql کلیک کنید\n' +
+          '3. تب Headers → Authorization را کپی کنید\n' +
+          '   (فقط مقدار بعد از "Bearer " را paste کنید)\n\n' +
+          'توکن را اینجا paste کنید:'
+        );
+        if (t && t.trim()) {
+          S.token = t.replace(/^Bearer\s+/i, '').trim();
+          S.started = true;
+          loadAndRender(1);
+        } else {
+          alert('❌ بدون توکن امکان ادامه وجود ندارد.');
+        }
+      }
+    }, 4000);
+  }
 
 })();
