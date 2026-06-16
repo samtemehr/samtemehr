@@ -6,8 +6,8 @@
     update: 'https://ezam.balagh.ir/_api/V02/Samta/graphql'
   };
 
-  const LIST_QUERY = `query($pageIndex: Int, $pageSize: Int) {
-  baseRegion(pageIndex: $pageIndex, pageSize: $pageSize) {
+  const LIST_QUERY = `query($query: BaseRegionQueryInput!) {
+  baseRegion(query: $query) {
     data {
       id regionName regionAddress enumCStatusBaseRegion lat notFind
       refcountryDivision { mLevel name }
@@ -135,15 +135,15 @@
     let body;
     if (S.capturedListBody) {
       body = JSON.parse(JSON.stringify(S.capturedListBody));
-      if (body.variables) {
-        for (const k of Object.keys(body.variables)) {
-          const kl = k.toLowerCase();
-          if (kl.includes('index') || kl === 'page' || kl === 'pagenumber') body.variables[k] = page;
-          if (kl.includes('size') || kl.includes('limit') || kl.includes('perpage')) body.variables[k] = S.pgSize;
-        }
+      if (body.variables?.query) {
+        body.variables.query.pageIndex = page;
+        body.variables.query.pageSize  = S.pgSize;
+      } else if (body.variables) {
+        body.variables.pageIndex = page;
+        body.variables.pageSize  = S.pgSize;
       }
     } else {
-      body = { query: LIST_QUERY, variables: { pageIndex: page, pageSize: S.pgSize } };
+      body = { query: LIST_QUERY, variables: { query: { pageIndex: page, pageSize: S.pgSize } } };
     }
     const json = await gql(EP.list, body);
     console.log('[SV] fetchPage response:', JSON.stringify(json).slice(0, 600));
