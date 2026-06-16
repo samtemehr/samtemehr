@@ -2,7 +2,7 @@
   'use strict';
 
   const EP = {
-    list:   'https://ezam.balagh.ir/_api/V02/SamtaEzam/graphql',
+    list:   'https://ezam.balagh.ir/_api/V02/Samta/graphql',
     update: 'https://ezam.balagh.ir/_api/V02/Samta/graphql'
   };
 
@@ -108,7 +108,7 @@
     }
     const res = await _fetch(url, opts);
     // Capture list query body
-    if (typeof url === 'string' && url.includes('SamtaEzam/graphql') && opts?.body && !S.capturedListBody) {
+    if (typeof url === 'string' && url.includes('Samta/graphql') && opts?.body && !S.capturedListBody) {
       try {
         const json = await res.clone().json();
         if (json?.data?.baseRegion) S.capturedListBody = JSON.parse(opts.body);
